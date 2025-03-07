@@ -18,11 +18,8 @@ import (
 
 func main() {
 	var configFile string
-	// var backupDIR string
 
-	// flag.StringVar(&backupDIR, "backup-dir", "", "backup file directory")
 	flag.StringVar(&configFile, "config", "", "path to config file default './config.yaml'")
-	// flag.StringVar(&configF)
 	flag.Parse()
 
 	conf, err := LoadConfig(configFile)
@@ -32,9 +29,6 @@ func main() {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-
-	sigC := make(chan os.Signal, 1)
-	signal.Notify(sigC, syscall.SIGTERM, syscall.SIGINT)
 
 	logger := logrus.New()
 
@@ -59,6 +53,9 @@ func main() {
 	updt.Timeout = 60
 
 	uChan := bot.GetUpdatesChan(updt)
+
+	sigC := make(chan os.Signal, 1)
+	signal.Notify(sigC, syscall.SIGTERM, syscall.SIGINT)
 
 	eg := errgroup.Group{}
 	eg.Go(func() error {
@@ -106,16 +103,6 @@ updateLoop:
 					continue
 				}
 
-				// if update.Message.Document != nil {
-				// 	err := StoreDoc(ctx, bot, &update)
-				// 	if err != nil {
-				// 		logger.Errorf("failed get file from bot api: %v", err)
-				// 		response.Text = "failed store document"
-				// 	} else {
-				// 		response.Text = "success"
-				// 	}
-				// 	bot.Send(response)
-				// }
 			}
 		}
 	}
@@ -124,36 +111,3 @@ updateLoop:
 		logger.Errorf("error from errorgroup: %v", err)
 	}
 }
-
-// func StoreDoc(ctx context.Context, bot *tApi.BotAPI, updt *tApi.Update) error {
-
-// 	file, err := bot.GetFile(tApi.FileConfig{FileID: updt.Message.Document.FileID})
-// 	if err != nil {
-// 		return err
-// 	}
-// 	link := file.Link(token)
-// 	resp, err := http.Get(link)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	defer resp.Body.Close()
-
-// 	if resp.StatusCode != 200 && resp.StatusCode != 202 {
-// 		return fmt.Errorf("error status code %v", resp.Status)
-// 	}
-
-// 	id := strconv.FormatInt(updt.Message.From.ID, 10)
-// 	toDir := filepath.Join("/mnt/d/wsl/tdrive", id)
-// 	os.MkdirAll(toDir, 0o777)
-// 	toFile := filepath.Join(toDir, updt.Message.Document.FileName)
-// 	f, err := os.Create(toFile)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	defer f.Close()
-
-// 	if _, err := io.Copy(f, resp.Body); err != nil {
-// 		return err
-// 	}
-// 	return nil
-// }

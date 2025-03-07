@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	_default_config_file = "./default.yaml"
+	_default_config_file = "./config.yaml"
 	_default_backup_dir  = "./telefs"
 )
 
@@ -27,31 +27,37 @@ func (c *Config) validate() error {
 		return fmt.Errorf("required telegram token key")
 	}
 
+	if c.BackupDir == "" {
+		c.BackupDir = _default_backup_dir
+	}
+
 	return nil
 }
 
 func LoadConfig(toFile string) (*Config, error) {
+	if toFile == "" {
+		toFile = _default_config_file
+	}
+
 	f, err := os.Open(toFile)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open config file :%v", err)
+		return nil, fmt.Errorf("failed to open config file %s:%v", toFile, err)
 	}
 	defer f.Close()
+
 	b, err := io.ReadAll(f)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read config file :%v", err)
+		return nil, fmt.Errorf("failed to read config file %s:%v", toFile, err)
 	}
 
 	in := Config{}
 	if err := yaml.Unmarshal(b, &in); err != nil {
-		return nil, fmt.Errorf("failed to parse config file: %v", err)
+		return nil, fmt.Errorf("failed to parse config file %s: %v", toFile, err)
 	}
 
 	if err := in.validate(); err != nil {
 		return nil, err
 	}
 
-	if in.BackupDir == "" {
-		in.BackupDir = _default_backup_dir
-	}
 	return &in, nil
 }

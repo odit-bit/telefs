@@ -13,13 +13,6 @@ const (
 	_wnTopNews = "top-news"
 )
 
-var defaultHeader = func() http.Header {
-	header := http.Header{}
-	header.Set("Accept", "application/json")
-	header.Set("Connection", "keep-alive")
-	return header
-}
-
 // wrap the world news API client call
 type Client struct {
 	apiKey string
@@ -34,7 +27,6 @@ func httpTopNewsRequest(ctx context.Context, apiKey string, id string) (*http.Re
 	q := urlpkg.Values{}
 	q.Set("source-country", id)
 	q.Set("language", id)
-	// endpoint.Query().Add("date", time.Now().Local().)
 	q.Set("headlines-only", "true")
 	q.Set("api-key", apiKey)
 
@@ -48,8 +40,9 @@ func httpTopNewsRequest(ctx context.Context, apiKey string, id string) (*http.Re
 	if err != nil {
 		return nil, err
 	}
-	req.Header = defaultHeader()
-	req = req.WithContext(ctx)
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("Connection", "keep-alive")
+
 	return req, nil
 }
 
@@ -69,7 +62,7 @@ func (c *Client) TopNews(pCtx context.Context, cid countryID) (*TopNewsResp, err
 	}
 	defer res.Body.Close()
 
-	if res.StatusCode > 300 {
+	if res.StatusCode >= 400 {
 		return nil, fmt.Errorf("got error: %d", res.StatusCode)
 	}
 	tn := TopNewsResp{}
