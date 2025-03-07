@@ -37,7 +37,7 @@ func main() {
 	signal.Notify(sigC, syscall.SIGTERM, syscall.SIGINT)
 
 	logger := logrus.New()
-	
+
 	worldNews, err := news.NewWNAPI(ctx, conf.ApiKey, conf.BackupDir,
 		news.WithDebug(),
 		news.WithLoadFromBackup(),
@@ -100,7 +100,9 @@ updateLoop:
 					default:
 						response.Text = "sorry, i don't know the command"
 					}
-					bot.Send(response)
+					if msg, err := bot.Send(response); err != nil {
+						logger.Errorf("failed to send message, messageID: %v, err: %v", msg.MessageID, err)
+					}
 					continue
 				}
 
@@ -118,7 +120,9 @@ updateLoop:
 		}
 	}
 
-	eg.Wait()
+	if err := eg.Wait(); err != nil {
+		logger.Errorf("error from errorgroup: %v", err)
+	}
 }
 
 // func StoreDoc(ctx context.Context, bot *tApi.BotAPI, updt *tApi.Update) error {

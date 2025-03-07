@@ -1,5 +1,6 @@
 package news
 
+// for testing only
 var worldNewsData_ID = `
 {
     "top_news": [

@@ -28,6 +28,10 @@ type News struct {
 }
 
 func (n *News) RandomArticle() Article {
+	if len(n.Articles) == 0 {
+		return Article{}
+	}
+
 	num := rand.IntN(len(n.Articles)-0) - 0
 	return n.Articles[num]
 }

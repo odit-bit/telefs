@@ -83,7 +83,9 @@ func NewWNAPI(ctx context.Context, apiKey string, backupDir string, opts ...opti
 			err = fmt.Errorf("failed load from dump file: %v", err)
 			wn.logger.Debug(err)
 			wn.fetchTopNews(ctx)
-			wn.dump()
+			if err := wn.dump(); err != nil {
+				wn.logger.Warnf("failed to dump data: %v", err)
+			}
 		}
 	} else {
 		wn.fetchTopNews(ctx)
@@ -139,7 +141,8 @@ func (h *wnAPI) loadFromDumpFile() error {
 		h.logger.Infof("load from file path:%s, name:%s", path, d.Name())
 		name, _ := strings.CutSuffix(d.Name(), ".json")
 		split := strings.Split(name, "_")
-		if len(split) == 0 && split[len(split)-1] != "id" {
+
+		if len(split) == 0 || split[len(split)-1] != "id" {
 			return fmt.Errorf("invalid name format: %v", split)
 		}
 

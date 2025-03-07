@@ -44,24 +44,11 @@ func httpTopNewsRequest(ctx context.Context, apiKey string, id string) (*http.Re
 	}
 	u.RawQuery = q.Encode()
 
-	// req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
-	// if err != nil {
-	// 	return nil, err
-	// }
-	// return req, nil
-
-	req := &http.Request{
-		// ctx:        ctx,
-		Method:     http.MethodGet,
-		URL:        u,
-		Proto:      "HTTP/1.1",
-		ProtoMajor: 1,
-		ProtoMinor: 1,
-		Header:     defaultHeader(),
-		Body:       nil,
-		Host:       u.Host,
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
+	if err != nil {
+		return nil, err
 	}
-
+	req.Header = defaultHeader()
 	req = req.WithContext(ctx)
 	return req, nil
 }
