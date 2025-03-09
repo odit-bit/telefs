@@ -83,7 +83,13 @@ updateLoop:
 					case "status":
 						response.Text = fmt.Sprintf("online: %s", time.Now().UTC().String())
 					case "topnews":
-						top, _ := worldNews.TopNewsIndonesia()
+						top, err := worldNews.TopNewsIndonesia()
+						if err != nil {
+							logger.Errorf("failed to fetch top news: %v", err)
+							response.Text = "failed to fetch top news, try again later."
+							bot.Send(response)
+							continue
+						}
 						for _, l := range top {
 							a := l.RandomArticle()
 							response.Text = fmt.Sprintf("%s \n %s", a.Title, a.URL)

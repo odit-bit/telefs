@@ -6,12 +6,17 @@ import (
 	"fmt"
 	"net/http"
 	urlpkg "net/url"
+	"time"
 )
 
 const (
 	_wnBaseUrl = "https://api.worldnewsapi.com"
 	_wnTopNews = "top-news"
 )
+
+var defaultHttpClient = http.Client{
+	Timeout: 10 * time.Second,
+}
 
 // wrap the world news API client call
 type Client struct {
@@ -25,6 +30,8 @@ func New(apiKey string) *Client {
 func httpTopNewsRequest(ctx context.Context, apiKey string, id string) (*http.Request, error) {
 
 	q := urlpkg.Values{}
+	// world news api parameter use the same value for
+	// 'language' and 'source-country' key
 	q.Set("source-country", id)
 	q.Set("language", id)
 	q.Set("headlines-only", "true")
@@ -56,7 +63,7 @@ func (c *Client) TopNews(pCtx context.Context, cid countryID) (*TopNewsResp, err
 		return nil, err
 	}
 
-	res, err := http.DefaultClient.Do(req)
+	res, err := defaultHttpClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
