@@ -1,0 +1,7 @@
+# API configuration
+"api_key": "dummy-key" # replace with actual key
+"backup_dir": "./telefs" # cache data fecthed from api
+
+#Telegram bot configuration
+"telegram_token": "dummy:token" # replace with actual key
+
