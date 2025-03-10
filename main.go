@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"flag"
 	"fmt"
@@ -30,8 +31,10 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	// logger instance
 	logger := logrus.New()
 
+	// news service instance
 	worldNews, err := news.NewWNAPI(ctx, conf.ApiKey, conf.BackupDir,
 		news.WithDebug(),
 		news.WithLoadFromBackup(),
@@ -41,6 +44,7 @@ func main() {
 		return
 	}
 
+	// bot instance
 	bot, err := tApi.NewBotAPI(conf.TelegramToken)
 	if err != nil {
 		logger.Error(err)
@@ -49,14 +53,14 @@ func main() {
 
 	bot.Debug = true
 
+	// update channel
 	updt := tApi.NewUpdate(0)
 	updt.Timeout = 60
-
 	uChan := bot.GetUpdatesChan(updt)
 
+	// listen os signal
 	sigC := make(chan os.Signal, 1)
 	signal.Notify(sigC, syscall.SIGTERM, syscall.SIGINT)
-
 	eg := errgroup.Group{}
 	eg.Go(func() error {
 		sig := <-sigC
@@ -65,55 +69,86 @@ func main() {
 		return nil
 	})
 
-updateLoop:
+listenUpdate:
 	for {
 		select {
+
 		case <-ctx.Done():
-			break updateLoop
+			break listenUpdate
+
 		case update, ok := <-uChan:
 			if !ok {
-				break updateLoop
+				break listenUpdate
 			}
 
 			if update.Message != nil {
-				response := tApi.NewMessage(update.Message.Chat.ID, "")
-
 				if update.Message.IsCommand() {
 					switch update.Message.Command() {
 					case "status":
-						response.Text = fmt.Sprintf("online: %s", time.Now().UTC().String())
-					case "topnews":
-						top, err := worldNews.TopNewsIndonesia()
-						if err != nil {
-							logger.Errorf("failed to fetch top news: %v", err)
-							response.Text = "failed to fetch top news, try again later."
-							bot.Send(response)
-							continue
-						}
-						for _, l := range top {
-							a := l.RandomArticle()
-							response.Text = fmt.Sprintf("%s \n %s", a.Title, a.URL)
-							_, err := bot.Send(response)
-							if err != nil {
-								logger.Error(err)
-								continue
-							}
-						}
-						continue
-					default:
-						response.Text = "sorry, i don't know the command"
-					}
-					if msg, err := bot.Send(response); err != nil {
-						logger.Errorf("failed to send message, messageID: %v, err: %v", msg.MessageID, err)
-					}
-					continue
-				}
+						statusCMD(bot, &update, logger)
 
+					case "top":
+						topnewsCmd(bot, &update, worldNews, logger)
+
+					default:
+						unknownCMD(bot, &update, logger)
+					}
+				}
 			}
+
 		}
 	}
 
 	if err := eg.Wait(); err != nil {
 		logger.Errorf("error from errorgroup: %v", err)
+	}
+}
+
+func unknownCMD(bot *tApi.BotAPI, update *tApi.Update, logger *logrus.Logger) {
+	response := tApi.NewMessage(update.Message.Chat.ID, "")
+	response.Text = "sorry, i don't know the command"
+	if msg, err := bot.Send(response); err != nil {
+		logger.Errorf("failed to send message, messageID: %v, err: %v", msg.MessageID, err)
+	}
+}
+
+func statusCMD(bot *tApi.BotAPI, update *tApi.Update, logger *logrus.Logger) {
+	response := tApi.NewMessage(update.Message.Chat.ID, "")
+	response.Text = fmt.Sprintf("online: %s", time.Now().UTC().String())
+	if msg, err := bot.Send(response); err != nil {
+		logger.Errorf("failed to send message, messageID: %v, err: %v", msg.MessageID, err)
+	}
+}
+
+func topnewsCmd(bot *tApi.BotAPI, update *tApi.Update, worldNews *news.Service, logger *logrus.Logger) {
+	response := tApi.NewMessage(update.Message.Chat.ID, "")
+
+	// get news
+	top, err := worldNews.TopNewsIndonesia()
+	if err != nil {
+		logger.Warnf("failed to fetch top news: %v", err)
+		response.Text = "failed to fetch top news, try again later."
+		msg, err := bot.Send(response)
+		if err != nil {
+			logger.Errorf("failed to send message, messageID: %v, err: %v", msg.MessageID, err)
+			return
+		}
+		return
+	}
+
+	// render news
+	var text bytes.Buffer
+	for _, l := range top {
+		text.Reset()
+		for i, a := range l.Articles {
+			text.WriteString(fmt.Sprintf("\n--%d \n %s \n %s \r\n", i, a.Title, a.URL))
+		}
+
+		response.Text = text.String()
+		msg, err := bot.Send(response)
+		if err != nil {
+			logger.Errorf("failed to send message, messageID: %v, err: %v", msg.MessageID, err)
+			return
+		}
 	}
 }
