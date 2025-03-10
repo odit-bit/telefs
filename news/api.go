@@ -22,6 +22,10 @@ const (
 	_file_format_name       = "top_news"
 )
 
+type Service struct {
+	*wnAPI
+}
+
 // this type will fetch and maintained news from World News API
 type wnAPI struct {
 	mx     sync.Mutex
@@ -37,7 +41,7 @@ type wnAPI struct {
 	backupRoot    string
 }
 
-func NewWNAPI(ctx context.Context, apiKey string, backupDir string, opts ...option) (*wnAPI, error) {
+func NewWNAPI(ctx context.Context, apiKey string, backupDir string, opts ...option) (*Service, error) {
 	// if err := conf.validate(); err != nil {
 	// 	return nil, fmt.Errorf("invalid configuration: %v", err)
 	// }
@@ -67,6 +71,7 @@ func NewWNAPI(ctx context.Context, apiKey string, backupDir string, opts ...opti
 		}
 	}
 
+	// create backup dir if not exist
 	_, err = os.Stat(wn.backupRoot)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -78,10 +83,11 @@ func NewWNAPI(ctx context.Context, apiKey string, backupDir string, opts ...opti
 		}
 	}
 
+	// if true, try load topnews from file
 	if wn.bootstrap {
-		if err := wn.loadFromDumpFile(); err != nil {
+		if err := wn.load(); err != nil {
 			err = fmt.Errorf("failed load from dump file: %v", err)
-			wn.logger.Debug(err)
+			wn.logger.Warn(err)
 			wn.fetchTopNews(ctx)
 			if err := wn.dump(); err != nil {
 				wn.logger.Warnf("failed to dump data: %v", err)
@@ -93,8 +99,8 @@ func NewWNAPI(ctx context.Context, apiKey string, backupDir string, opts ...opti
 
 	go func() {
 
-		now := time.Now().UTC()
-		dur := wn.NextClockHour(now)
+		now := time.Now()
+		dur := wn.nextClockHour(now)
 		timer := time.NewTicker(dur)
 		defer timer.Stop()
 
@@ -118,10 +124,10 @@ func NewWNAPI(ctx context.Context, apiKey string, backupDir string, opts ...opti
 	}()
 
 	wn.isRun = true
-	return wn, nil
+	return &Service{wnAPI: wn}, nil
 }
 
-func (h *wnAPI) loadFromDumpFile() error {
+func (h *wnAPI) load() error {
 	isLoad := false
 	err := filepath.WalkDir(h.backupRoot, func(path string, d fs.DirEntry, err error) error {
 		h.logger.Debugf("inspect backup file at dir:%v, name: %v", path, d.Name())
@@ -155,6 +161,11 @@ func (h *wnAPI) loadFromDumpFile() error {
 		if err := json.NewDecoder(f).Decode(&tn); err != nil {
 			return err
 		}
+
+		if tn.CachedAt.Before(time.Now().Truncate(h.fetchInterval)) {
+			return err
+		}
+
 		h.cache[(split[len(split)-1])] = tn
 		isLoad = true
 		return nil
@@ -182,8 +193,9 @@ func (h *wnAPI) fetchTopNews(ctx context.Context) {
 		h.logger.Errorf("failed fetch topnews : empty result, this is a bug \n dump: %v", result)
 		return
 	}
+	result.CachedAt = time.Now()
 	h.cache[string(wncli.TN_ID)] = *result
-	h.logger.Infof("success fetch from world news api: %s", time.Now().UTC().String())
+	h.logger.Infof("success fetch from world news api: %s", time.Now().String())
 }
 
 func (h *wnAPI) TopNewsIndonesia() ([]wncli.News, error) {
@@ -202,7 +214,8 @@ func (h *wnAPI) dump() error {
 	for id, news := range h.cache {
 		f, err := os.Create(filepath.Join(h.backupRoot, fmt.Sprintf("%s_%s.json", "top_news", string(id))))
 		if err != nil {
-			h.logger.Warnf("file to save backup : %v \n", err)
+			h.logger.Warnf("failed to save backup : %v \n", err)
+			return err
 		}
 		if err := json.NewEncoder(f).Encode(news); err != nil {
 			f.Close()
@@ -215,7 +228,7 @@ func (h *wnAPI) dump() error {
 
 //////// helper
 
-func (h *wnAPI) NextClockHour(t time.Time) time.Duration {
+func (h *wnAPI) nextClockHour(t time.Time) time.Duration {
 	future := t.Add(h.fetchInterval).Truncate(h.fetchInterval)
 
 	dur := future.Sub(t)
@@ -228,6 +241,7 @@ var ErrOption = errors.New("wnApi is run cannot change/add options")
 
 type option func(wn *wnAPI) (*wnAPI, error)
 
+// try load from backup file , it will re-fetch if the loaded file is outdated
 func WithLoadFromBackup() func(wn *wnAPI) (*wnAPI, error) {
 	return func(wn *wnAPI) (*wnAPI, error) {
 		if !wn.isRun {

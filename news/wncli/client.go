@@ -34,7 +34,7 @@ func httpTopNewsRequest(ctx context.Context, apiKey string, id string) (*http.Re
 	// 'language' and 'source-country' key
 	q.Set("source-country", id)
 	q.Set("language", id)
-	q.Set("headlines-only", "true")
+	q.Set("headlines-only", "false")
 	q.Set("api-key", apiKey)
 
 	u, err := urlpkg.Parse(fmt.Sprintf("%s/%s", _wnBaseUrl, _wnTopNews))

@@ -1,7 +1,6 @@
 package wncli
 
 import (
-	"math/rand/v2"
 	"time"
 )
 
@@ -12,28 +11,20 @@ var (
 type countryID string
 
 type Article struct {
-	ID          int64
-	Title       string
-	Text        string
-	Summary     string
-	URL         string
-	Video       string
-	PublishDate time.Time
-	Author      string
-	Authors     []string
+	ID          int64    `json:"id"`
+	Title       string   `json:"title"`
+	Text        string   `json:"text"`
+	Summary     string   `json:"summary"`
+	URL         string   `json:"url"`
+	Image       string   `json:"image"`
+	Video       string   `json:"video"`
+	PublishDate string   `json:"publish_date"`
+	Author      string   `json:"author"`
+	Authors     []string `json:"authors"`
 }
 
 type News struct {
 	Articles []Article `json:"news"`
-}
-
-func (n *News) RandomArticle() Article {
-	if len(n.Articles) == 0 {
-		return Article{}
-	}
-
-	num := rand.IntN(len(n.Articles)-0) - 0
-	return n.Articles[num]
 }
 
 type TopNewsRequest struct {
@@ -41,5 +32,8 @@ type TopNewsRequest struct {
 }
 
 type TopNewsResp struct {
-	TopNews []News `json:"top_news"`
+	TopNews  []News `json:"top_news"`
+	Language string `json:"language"`
+	Country  string `json:"country"`
+	CachedAt time.Time
 }
