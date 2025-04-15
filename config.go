@@ -17,6 +17,10 @@ type Config struct {
 	ApiKey        string `yaml:"api_key"`
 	TelegramToken string `yaml:"telegram_token"`
 	BackupDir     string `yaml:"backup_dir"`
+
+	TimnasApiKey    string `yaml:"timnas_api_key"`
+	TimnasBackupDir string `yaml:"timnas_backup_dir"`
+	TimnasEndpoint  string `yaml:"timnas_api_endpoint"`
 }
 
 func (c *Config) validate() error {
